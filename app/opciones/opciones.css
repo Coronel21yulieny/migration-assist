@@ -1,0 +1,38 @@
+.opciones-root {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background: transparent;
+}
+.opciones-root .bg {
+  position: absolute;
+  inset: 0;
+  background-image: url("/usa-hero.jpg"); /* Debe existir en /public */
+  background-size: cover;
+  background-position: top center;
+  background-repeat: no-repeat;
+  filter: saturate(0.95) contrast(0.98);
+  z-index: 0;
+}
+.opciones-root .veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.55));
+  backdrop-filter: blur(4px);
+  z-index: 1;
+}
+.opciones-root .vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90rem 60rem at 50% 15%,
+    rgba(0,0,0,0) 0%,
+    rgba(0,0,0,0.06) 65%,
+    rgba(0,0,0,0.1) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+.opciones-root .content {
+  position: relative;
+  z-index: 3;
+  padding: 48px 20px 72px;
+}

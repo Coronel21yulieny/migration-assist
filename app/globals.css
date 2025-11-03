@@ -1,0 +1,297 @@
+/* ====== VARIABLES (tema) ====== */
+:root {
+  --brand-700: #083b6c;
+  --brand-600: #0a467f;
+  --brand-500: #0b4c8c;
+
+  --ink-900: #0f172a;
+  --ink-800: #1f2937;
+  --ink-700: #334155;
+  --ink-600: #475569;
+  --ink-500: #64748b;
+
+  --paper: #ffffff;
+  --paper-muted: #f8fafc;
+
+  --border: #e5e7eb;
+  --ring: #93c5fd;
+}
+
+/* ====== RESET SUAVE / BASE ====== */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  color: var(--ink-900);
+  background: #eef2f7;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; }
+
+/* ====== HERO BACKDROP (fondo clarito con overlay) ====== */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(11, 76, 140, 0.12), transparent 60%),
+    radial-gradient(1200px 600px at 115% 110%, rgba(11, 76, 140, 0.10), transparent 60%),
+    #eef2f7;
+}
+
+/* Si quieres usar tu imagen (public/usa-hero.jpg), descomenta esto:
+.hero {
+  background: url('/usa-hero.jpg') center/cover no-repeat;
+}
+*/
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Overlay que “blanquea” la imagen para que se vea muy tenue */
+  background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.64));
+  backdrop-filter: blur(5px);
+  z-index: 1;
+}
+.hero > * { position: relative; z-index: 2; }
+
+/* ====== TARJETAS (glass) ====== */
+.card,
+.register-card,
+.auth-card,
+.loader-card {
+  width: 100%;
+  max-width: 480px;
+  border-radius: 22px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 40px rgba(2,6,23,.08);
+  backdrop-filter: blur(6px);
+  padding: 26px 24px 18px;
+}
+
+.loader-card { max-width: 360px; border-radius: 18px; padding: 24px; }
+.auth-card   { max-width: 430px; }
+.register-card { max-width: 480px; }
+
+/* ====== HEADER DE TARJETA ====== */
+.card-header { text-align: center; margin-bottom: 8px; }
+
+.logo-badge {
+  width: 52px; height: 52px; margin: 0 auto 10px;
+  border-radius: 9999px; display: grid; place-items: center;
+  font-weight: 800; letter-spacing: .5px; color: #fff;
+  background: linear-gradient(180deg, var(--brand-500), var(--brand-700));
+  box-shadow: 0 8px 22px rgba(11,76,140,.28);
+}
+.loader-card .logo-badge { width: 44px; height: 44px; }
+
+.title   { margin: 0; font-size: 1.75rem; line-height: 1.2; font-weight: 900; color: var(--ink-900); }
+.subtitle{ margin: 6px 0 0; font-size: .95rem; color: var(--ink-600); }
+
+/* ====== FORM / CAMPOS ====== */
+.form { display: grid; gap: 12px; margin-top: 12px; }
+
+.field        { display: grid; gap: 6px; }
+.field > span { font-size: .85rem; color: var(--ink-700); font-weight: 600; }
+
+.input {
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 11px 12px;
+  font-size: .97rem;
+  color: var(--ink-900);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .06s ease;
+}
+.input::placeholder { color: var(--ink-500); }
+.input:focus-visible {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.error { color: #dc2626; font-size: .92rem; text-align: center; margin: 2px 0 4px; }
+
+/* divisor con “o” */
+.divider { position: relative; display: grid; place-items: center; margin: 12px 0 6px; }
+.divider::before {
+  content: ""; position: absolute; left: 0; right: 0; height: 1px; background: var(--border);
+}
+.divider > span { position: relative; padding: 0 10px; background: var(--paper); color: var(--ink-500); font-size: .85rem; }
+
+/* ====== BOTONES ====== */
+.btn {
+  display: inline-block;
+  padding: .78rem 1.15rem;
+  border-radius: 9999px;
+  border: 0;
+  font-weight: 800;
+  font-size: .95rem;
+  letter-spacing: .2px;
+  line-height: 1;
+  transition: all .18s ease;
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.btn-sm { padding: .55rem .9rem; font-size: .88rem; }
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--brand-500), var(--brand-700));
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(11,76,140,.24);
+}
+.btn-primary:hover       { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(11,76,140,.30); }
+.btn-primary:focus-visible{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
+.btn-primary:active      { transform: translateY(0); }
+
+.btn-outline {
+  background: #fff;
+  color: var(--brand-700);
+  border: 1px solid #dbe2ea;
+  box-shadow: 0 1px 2px rgba(2,6,23,.04);
+}
+.btn-outline:hover        { background: var(--paper-muted); border-color: #cfd8e3; transform: translateY(-1px); }
+.btn-outline:focus-visible{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
+
+/* ==== Fondo global en TODAS las páginas ==== */
+
+/* Asegura que nada opaque el fondo */
+html, body, main, #__next, #root {
+  background: transparent !important;
+}
+
+/* Capa 1: imagen (fija, cubre toda la app) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;                 /* siempre detrás del contenido */
+  background-image: url("/usa-hero.jpg");  /* <-- ajusta si tu ruta es distinta */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* ===== FONDO GLOBAL EN TODAS LAS PÁGINAS ===== */
+html, body, main, #__next, #root {
+  background: transparent !important;
+  color: #0f172a; /* texto oscuro por defecto */
+}
+
+/* Imagen de fondo: difusa y brillante */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: url("/usa-hero.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(10px) brightness(1.05) saturate(1);
+  transform: scale(1.03);
+}
+
+/* Velo blanco: translúcido, tipo “glass”, que aclara todo */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(255, 255, 255, 0.65); /* más blanco y suave */
+  backdrop-filter: blur(2px);
+}
+
+/* ===== TARJETAS (formulario) ===== */
+section,
+form,
+.glass-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 1rem;
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);
+  color: #0f172a;
+  padding: 1.5rem;
+}
+
+/* ===== CAMPOS DE FORMULARIO ===== */
+.input, input, select, textarea {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  transition: all 0.2s ease;
+}
+
+.input:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  background: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  outline: none;
+}
+
+/* ===== TEXTOS ===== */
+label, h1, h2, h3, p, span {
+  color: #0f172a !important; /* texto oscuro y visible */
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* ===== BOTONES ===== */
+.btn {
+  background: linear-gradient(90deg, #1e3a8a 0%, #b91c1c 100%);
+  color: #fff;
+  padding: 0.55rem 1.2rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(30, 58, 138, 0.25);
+}
+
+.btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 20px rgba(30, 58, 138, 0.35);
+}
+
+.btn-outline {
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 0.55rem 1.2rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+  background: white;
+  border-color: #2563eb;
+}
