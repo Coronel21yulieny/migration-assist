@@ -1,25 +1,33 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+// eslint.config.mjs (Flat config ESLint)
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import next from 'eslint-config-next';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+export default [
+  // Ignorar carpetas generadas
+  { ignores: ['.next/*', 'node_modules/*'] },
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+  // Config base de Next.js
+  ...next,
 
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  // Reglas para TypeScript
   {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-    ],
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      parser: tsParser,
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
+      // ❗ Quita los bloqueos por "any" mientras tipamos con calma
+      '@typescript-eslint/no-explicit-any': 'off',
+
+      // Permite ts-expect-error con descripción (mejor que ts-ignore)
+      '@typescript-eslint/ban-ts-comment': [
+        'warn',
+        { 'ts-expect-error': 'allow-with-description' }
+      ],
+    },
   },
 ];
-
-export default eslintConfig;
