@@ -1,9 +1,9 @@
-// src/lib/ai.ts
 import OpenAI from "openai";
 import { I589Schema, I765Schema } from "./zodSchemas";
 
-// Necesitas OPENAI_API_KEY en .env
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Solo inicializa OpenAI si hay una clave definida
+const apiKey = process.env.OPENAI_API_KEY;
+const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 /**
  * Convierte la narrativa libre de un usuario en un objeto JSON
@@ -13,6 +13,14 @@ export async function normalizeIntake(
   narrative: string,
   form: "i589" | "i765"
 ) {
+  // Si no hay cliente (no hay clave), devuelve un JSON vacío
+  if (!client) {
+    console.warn("⚠️ No hay clave de OpenAI configurada, se omite llamada a la API.");
+    return form === "i589"
+      ? I589Schema.parse({})
+      : I765Schema.parse({});
+  }
+
   const system =
     "Eres un asistente de migración. Extrae campos en JSON válido para el esquema indicado. " +
     "Usa null cuando falte un dato. Responde SOLO JSON sin texto adicional.";
@@ -32,8 +40,6 @@ export async function normalizeIntake(
   });
 
   const raw = resp.choices[0]?.message?.content ?? "{}";
-
-  // Parseo y validación estricta con Zod
   const parsed = JSON.parse(raw);
   return form === "i589" ? I589Schema.parse(parsed) : I765Schema.parse(parsed);
 }
