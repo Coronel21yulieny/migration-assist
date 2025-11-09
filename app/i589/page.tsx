@@ -17,7 +17,7 @@ function useDebouncedCallback<T extends (...args: any[]) => any>(fn: T, delay = 
   );
 }
 
-/* ===== UI base (reutiliza tu estilo USCIS) ===== */
+/* ===== UI base (mismo estilo USCIS que tu página 2) ===== */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="uscis-field">
@@ -43,6 +43,24 @@ const Input = (p: React.InputHTMLAttributes<HTMLInputElement>) =>
   <input {...p} className={`uscis-input ${p.className||''}`} />;
 const Textarea = (p: React.TextareaHTMLAttributes<HTMLTextAreaElement>) =>
   <textarea {...p} className={`uscis-input uscis-textarea ${p.className||''}`} />;
+
+/* ===== Stepper labels iguales a la página 2, incluyendo la Hoja 1 ===== */
+const STEP_LABELS: Array<{ n: number; label: string }> = [
+  { n: 1, label: "Parte A.I — Información" },
+  { n: 2, label: "Parte A.II — Cónyuge" },
+  { n: 3, label: "Parte A.II — Hijo/a 1" },
+  { n: 4, label: "Parte A.II — Hijo/a 2" },
+  { n: 5, label: "Parte A.II — Hijo/a 3" },
+  { n: 6, label: "Parte A.II — Hijo/a 4" },
+  { n: 7, label: "Parte B — Domicilios" },
+  { n: 8, label: "Parte B — Empleos" },
+  { n: 9, label: "Parte B — Estudios" },
+  { n: 10, label: "Parte B — Familia" },
+  { n: 11, label: "Parte C — Solicitud" },
+  { n: 12, label: "Parte D — Declaración y firma" },
+  { n: 13, label: "Enviar" },
+];
+const ALL_STEPS = STEP_LABELS.map(s => s.n);
 
 export default function I589Page1() {
   const router = useRouter();
@@ -79,7 +97,14 @@ export default function I589Page1() {
     return () => sub.unsubscribe();
   }, [watch, autosaveServer]);
 
-  const goNext = () => router.push('/i589/2');
+  const go = (n: number) => router.push(`/i589/${n}`);
+  const goNext = () => go(2);
+
+  /* ===== progreso + etiqueta activa (igual que en página 2) ===== */
+  const stepNum = 1;
+  const idx = Math.max(0, Math.min(ALL_STEPS.length - 1, ALL_STEPS.indexOf(stepNum)));
+  const progressPct = ((idx + 1) / ALL_STEPS.length) * 100;
+  const currentLabel = STEP_LABELS.find(s => s.n === stepNum)?.label ?? `Hoja ${stepNum}`;
 
   return (
     <FormProvider {...form}>
@@ -88,11 +113,36 @@ export default function I589Page1() {
         <header className="uscis-header">
           <div className="uscis-header-inner">
             <h1 className="uscis-title">Formulario I-589</h1>
-            <p className="uscis-subtitle">Hoja 1 — Parte A.I · Información sobre usted</p>
+            <p className="uscis-subtitle">{currentLabel} · Completa la información con precisión.</p>
           </div>
         </header>
 
+        {/* Contenedor central */}
         <div className="uscis-container">
+          {/* Progress bar */}
+          <div className="uscis-progress">
+            <div className="uscis-progress-bar" style={{ width: `${progressPct}%` }} />
+          </div>
+
+          {/* Stepper con las mismas “pastillas” */}
+          <nav className="uscis-steps uscis-steps-named">
+            {STEP_LABELS.map(({ n, label }) => {
+              const active = n === stepNum;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => go(n)}
+                  className={`uscis-step ${active ? "is-active" : ""}`}
+                  title={`Ir a: ${label}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Contenido (tus campos) */}
           <div className="uscis-content">
             {/* Identificadores */}
             <Section
@@ -100,9 +150,15 @@ export default function I589Page1() {
               description="Escriba su información personal tal como aparece en sus documentos."
             >
               <div className="uscis-grid uscis-grid-3">
-                <Field label="A-Number"><Input {...register('identifiers.aNumber')} placeholder="A###-###-### o N/A" /></Field>
-                <Field label="SSN (si tiene)"><Input {...register('identifiers.ssn')} placeholder="###-##-#### o N/A" /></Field>
-                <Field label="USCIS Online Account #"><Input {...register('identifiers.uscisAccount')} placeholder="N/A si no aplica" /></Field>
+                <Field label="A-Number">
+                  <Input {...register('identifiers.aNumber')} placeholder="A###-###-### o N/A" />
+                </Field>
+                <Field label="SSN (si tiene)">
+                  <Input {...register('identifiers.ssn')} placeholder="###-##-#### o N/A" />
+                </Field>
+                <Field label="USCIS Online Account #">
+                  <Input {...register('identifiers.uscisAccount')} placeholder="N/A si no aplica" />
+                </Field>
               </div>
 
               <div className="uscis-grid uscis-grid-3">
@@ -201,20 +257,151 @@ export default function I589Page1() {
             </Section>
           </div>
 
-          {/* Navegación */}
+          {/* Navegación inferior (mismo patrón) */}
           <div className="uscis-nav">
-            <div />
             <button
               type="button"
-              className="uscis-btn uscis-btn-primary"
-              onClick={handleSubmit(goNext)}
-              title="Ir a la Hoja 2"
+              className="uscis-btn uscis-btn-secondary"
+              disabled
+              title="Inicio"
             >
-              Continuar a la Hoja 2
+              Anterior
             </button>
+            <div className="uscis-nav-right">
+              <button
+                type="button"
+                className="uscis-btn uscis-btn-secondary"
+                onClick={() => go(2)}
+              >
+                Siguiente sección
+              </button>
+            </div>
           </div>
         </div>
       </main>
+
+      {/* Si tu app NO carga los estilos globales desde la página 2, deja este bloque.
+          Si ya los tienes globales, puedes eliminarlo para evitar duplicación. */}
+      <style jsx global>{`
+        :root {
+          --uscis-blue: #0b57a2;
+          --ink: #0f172a;
+          --ink-2: #334155;
+          --line: #e5e7eb;
+          --bg: #f6f9fc;
+          --card: #ffffff;
+        }
+        html, body { padding: 0; margin: 0; }
+        body { background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+
+        .uscis-page { min-height: 100vh; display: flex; flex-direction: column; }
+
+        .uscis-header { background: linear-gradient(90deg, var(--uscis-blue), #194f87); color: #fff; }
+        .uscis-header-inner { max-width: 960px; margin: 0 auto; padding: 20px 16px; text-align: center; }
+        .uscis-title { margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.2px; }
+        .uscis-subtitle { margin: 6px 0 0; opacity: 0.95; font-size: 14px; }
+
+        .uscis-container { max-width: 960px; margin: 20px auto; padding: 0 16px; }
+
+        .uscis-progress {
+          height: 8px; background: #e6eef8; border-radius: 999px; overflow: hidden;
+          margin: 12px auto 18px; max-width: 800px;
+        }
+        .uscis-progress-bar { height: 100%; background: var(--uscis-blue); width: 0%; transition: width .25s ease; }
+
+        .uscis-steps {
+          display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+          margin: 0 auto 16px; max-width: 800px;
+        }
+        .uscis-steps-named .uscis-step {
+          padding: 8px 14px;
+          border-radius: 12px;
+          font-size: 13px;
+          white-space: nowrap;
+        }
+        .uscis-step {
+          appearance: none; border: 1px solid #cdd9ea; background: #fff;
+          padding: 6px 10px; border-radius: 10px; font-size: 13px; color: var(--ink-2); cursor: pointer;
+        }
+        .uscis-step.is-active {
+          background: linear-gradient(90deg, #164a96, #b11d2a); color: #fff; border-color: transparent;
+          box-shadow: 0 1px 10px rgba(0,0,0,.08);
+        }
+
+        .uscis-content {
+          background: var(--card); border: 1px solid #e9eef6; box-shadow: 0 6px 24px rgba(2,48,94,.06);
+          border-radius: 16px; padding: 20px; margin: 0 auto 18px; max-width: 800px;
+        }
+
+        .uscis-section { margin-bottom: 14px; }
+        .uscis-section-title { font-size: 18px; font-weight: 700; margin: 0 0 6px; }
+        .uscis-section-desc { margin: 0 0 12px; color: var(--ink-2); font-size: 14px; }
+        .uscis-section-body { display: grid; gap: 12px; }
+
+        .uscis-grid { display: grid; gap: 12px; }
+        .uscis-grid.uscis-grid-2 { grid-template-columns: 1fr; }
+        .uscis-grid.uscis-grid-3 { grid-template-columns: 1fr; }
+        .uscis-grid.uscis-grid-4 { grid-template-columns: 1fr; }
+        @media (min-width: 780px) {
+          .uscis-grid.uscis-grid-2 { grid-template-columns: 1fr 1fr; }
+          .uscis-grid.uscis-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+          .uscis-grid.uscis-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        }
+
+        .uscis-field { display: flex; flex-direction: column; gap: 6px; }
+        .uscis-label { font-size: 13px; font-weight: 600; color: var(--ink); }
+        .uscis-hint { color: #6b7280; font-size: 11px; font-weight: 400; margin-left: 4px; }
+
+        .uscis-input {
+          width: 100%; border: 1px solid #cdd9ea; border-radius: 10px;
+          padding: 10px 12px; font-size: 14px; background: #fff;
+          transition: box-shadow .15s ease, border-color .15s ease;
+        }
+        .uscis-input:focus {
+          outline: none; border-color: var(--uscis-blue);
+          box-shadow: 0 0 0 3px rgba(11, 87, 162, 0.15); background: #fff;
+        }
+        .uscis-textarea { min-height: 96px; resize: vertical; }
+
+        .uscis-radio-inline { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+        .uscis-radio { display: inline-flex; align-items: center; gap: 8px; }
+
+        .uscis-box {
+          background: #f8fbff;
+          border: 1px solid #e1eaf7;
+          border-radius: 12px;
+          padding: 14px;
+          margin-bottom: 12px;
+        }
+        .uscis-innerbox {
+          background: #ffffff;
+          border: 1px dashed #cdd9ea;
+          border-radius: 10px;
+          padding: 12px;
+          margin-bottom: 12px;
+        }
+        .uscis-note { margin: 0 0 10px; font-size: 13px; color: #334155; }
+
+        .uscis-nav {
+          display: flex; align-items: center; justify-content: space-between;
+          max-width: 800px; margin: 0 auto 40px; gap: 12px;
+        }
+        .uscis-nav-right { display: flex; gap: 10px; }
+
+        .uscis-btn {
+          appearance: none; border: 1px solid #cdd9ea; padding: 10px 16px; border-radius: 999px;
+          font-size: 14px; cursor: pointer;
+          transition: transform .1s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+        }
+        .uscis-btn:disabled { opacity: .5; cursor: not-allowed; }
+        .uscis-btn-secondary { background: #fff; color: #0f172a; }
+        .uscis-btn-secondary:hover { background: #f8fafc; border-color: var(--uscis-blue); }
+        .uscis-btn-primary {
+          background: linear-gradient(90deg, #1e3a8a 0%, #b91c1c 100%); color: #fff; border-color: transparent;
+          box-shadow: 0 6px 18px rgba(30,58,138,.25);
+        }
+        .uscis-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(30,58,138,.35); }
+      `}</style>
     </FormProvider>
   );
 }

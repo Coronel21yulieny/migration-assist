@@ -181,3 +181,5 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 NUL
+
+.vercel
