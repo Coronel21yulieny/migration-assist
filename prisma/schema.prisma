@@ -5,8 +5,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite" // Para empezar rápido. Luego migramos a Postgres si quieres.
-  url      = env("DATABASE_URL")
+  provider = "postgresql" // ⬅️ CAMBIO: antes decía "sqlite"
+  url      = env("DATABASE_URL") // usa la URL de Neon
 }
 
 model User {

@@ -100,35 +100,35 @@ export default function Home() {
 
         {/* 🔵 Botón principal */}
         <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
-          <Link
-            href="/opciones"
-            style={{
-              background: "linear-gradient(90deg, #1e3a8a, #3b82f6, #1d4ed8)",
-              color: "#fff",
-              padding: "16px 30px",
-              borderRadius: 25,
-              fontWeight: 800,
-              textDecoration: "none",
-              fontSize: "1.1rem",
-              letterSpacing: "0.5px",
-              boxShadow:
-                "0 0 20px rgba(59,130,246,0.4), 0 0 40px rgba(37,99,235,0.25), inset 0 0 10px rgba(255,255,255,0.3)",
-              transition: "all 0.25s ease",
-              textTransform: "uppercase",
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.boxShadow =
-                "0 0 30px rgba(37,99,235,0.55), 0 0 60px rgba(30,64,175,0.4), inset 0 0 15px rgba(255,255,255,0.4)";
-              e.currentTarget.style.transform = "scale(1.05)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.boxShadow =
-                "0 0 20px rgba(59,130,246,0.4), 0 0 40px rgba(37,99,235,0.25), inset 0 0 10px rgba(255,255,255,0.3)";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-          >
-            ATREVETE A HACER REALIDAD TU SUEÑO AMERICANO
-          </Link>
+  <Link
+    href="/auth"  // ⬅️ antes decía "/opciones"
+    style={{
+      background: "linear-gradient(90deg, #1e3a8a, #3b82f6, #1d4ed8)",
+      color: "#fff",
+      padding: "16px 30px",
+      borderRadius: 25,
+      fontWeight: 800,
+      textDecoration: "none",
+      fontSize: "1.1rem",
+      letterSpacing: "0.5px",
+      boxShadow:
+        "0 0 20px rgba(59,130,246,0.4), 0 0 40px rgba(37,99,235,0.25), inset 0 0 10px rgba(255,255,255,0.3)",
+      transition: "all 0.25s ease",
+      textTransform: "uppercase",
+    }}
+    onMouseOver={(e) => {
+      e.currentTarget.style.boxShadow =
+        "0 0 30px rgba(37,99,235,0.55), 0 0 60px rgba(30,64,175,0.4), inset 0 0 15px rgba(255,255,255,0.4)";
+      e.currentTarget.style.transform = "scale(1.05)";
+    }}
+    onMouseOut={(e) => {
+      e.currentTarget.style.boxShadow =
+        "0 0 20px rgba(59,130,246,0.4), 0 0 40px rgba(37,99,235,0.25), inset 0 0 10px rgba(255,255,255,0.3)";
+      e.currentTarget.style.transform = "scale(1)";
+    }}
+  >
+    ATREVETE A HACER REALIDAD TU SUEÑO AMERICANO
+  </Link>
         </div>
       </section>
 

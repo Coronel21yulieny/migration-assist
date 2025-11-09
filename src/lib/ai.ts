@@ -1,11 +1,11 @@
-// lib/ai.ts
+// src/lib/ai.ts
 type SupportedForm = "i589" | "i765";
 
 export async function normalizeIntake(input: {
   narrative: string;
   form: SupportedForm;
 }) {
-  const apiKey = process.env.OPENAI_API_KEY; // léelo dentro de la función
+  const apiKey = process.env.OPENAI_API_KEY; // dentro de la función
   if (!apiKey) {
     return {
       ok: false,
@@ -15,7 +15,9 @@ export async function normalizeIntake(input: {
     };
   }
 
-  // TODO: tu lógica real (OpenAI/validaciones/etc) aquí dentro
+  // Si usas OpenAI:
+  // const openai = new (await import("openai")).default({ apiKey });
+  // ... tu llamada real ...
 
   return {
     ok: true,
@@ -23,3 +25,4 @@ export async function normalizeIntake(input: {
     form: input.form,
   };
 }
+

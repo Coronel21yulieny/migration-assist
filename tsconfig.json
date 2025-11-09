@@ -2,9 +2,9 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["src/*"],
+      "@/src/*": ["src/*"],
+      "@/lib/*": ["src/lib/*"]
     },
     "moduleResolution": "bundler",
     "module": "esnext",

@@ -1,9 +1,8 @@
 // app/api/intake/route.ts
 import { NextResponse } from "next/server";
-import { normalizeIntake } from "@/lib/ai";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const dynamic = "force-dynamic"; // no pre-render
+export const runtime = "nodejs";        // no edge
 export const revalidate = 0;
 
 type SupportedForm = "i589" | "i765";
@@ -13,6 +12,9 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({} as any));
     const narrative = (body?.narrative ?? "") as string;
     const form = ((body?.form ?? "i589") as SupportedForm);
+
+    // ⬇️ Importa la lógica SOLO en runtime (evita evaluación en build)
+    const { normalizeIntake } = await import("@/lib/ai");
 
     const data = await normalizeIntake({ narrative, form });
     return NextResponse.json({ success: true, data }, { status: 200 });
@@ -24,3 +26,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

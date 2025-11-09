@@ -1,340 +1,220 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { authedFetch } from "@/lib/auth";
 
-/* ========= SCHEMA ========= */
-const OptStr = z.string().nullish();
-const OptDate = z.string().nullish();
+/* ===== util debounce para autosave ===== */
+function useDebouncedCallback<T extends (...args: any[]) => any>(fn: T, delay = 900) {
+  const ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+  return useMemo(
+    () => (...args: Parameters<T>) => {
+      if (ref.current) clearTimeout(ref.current);
+      ref.current = setTimeout(() => fn(...args), delay);
+    },
+    [fn, delay]
+  );
+}
 
-const IdentifiersSchema = z.object({
-  aNumber: OptStr,
-  ssn: OptStr,
-  uscisAccount: OptStr,
-  lastName: OptStr,
-  firstName: OptStr,
-  middleName: OptStr,
-  otherNames: OptStr,
-}).partial();
-
-const AddressSchema = z.object({
-  res_street: OptStr,
-  res_apt: OptStr,
-  res_city: OptStr,
-  res_state: OptStr,
-  res_zip: OptStr,
-  res_phone: OptStr,
-  mail_street: OptStr,
-  mail_apt: OptStr,
-  mail_city: OptStr,
-  mail_state: OptStr,
-  mail_zip: OptStr,
-  mail_phone: OptStr,
-}).partial();
-
-const BioSchema = z.object({
-  sex: z.enum(["Male", "Female"] as const).nullish(),
-  maritalStatus: z.enum(["Single", "Married", "Divorced", "Widowed"] as const).nullish(),
-  dob: OptDate,
-  birth_city: OptStr,
-  birth_country: OptStr,
-  nationality_present: OptStr,
-  nationality_birth: OptStr,
-  race_ethnic_tribe: OptStr,
-  religion: OptStr,
-}).partial();
-
-const StatusTravelSchema = z.object({
-  current_status: OptStr,
-  i94: OptStr,
-  last_left_date: OptDate,
-  last_left_place: OptStr,
-  last_left_country: OptStr,
-  last_arrival_date: OptDate,
-  last_arrival_place: OptStr,
-  status_at_arrival: OptStr,
-  status_expires: OptDate,
-  passport_number: OptStr,
-  travel_doc_number: OptStr,
-  passport_country: OptStr,
-  passport_expiration: OptDate,
-}).partial();
-
-const LanguagesSchema = z.object({
-  native_language: OptStr,
-  fluent_english: z.enum(["Yes", "No"] as const).nullish(),
-  other_languages: OptStr,
-}).partial();
-
-const Page1Schema = z.object({
-  identifiers: IdentifiersSchema.optional(),
-  address: AddressSchema.optional(),
-  bio: BioSchema.optional(),
-  statusTravel: StatusTravelSchema.optional(),
-  languages: LanguagesSchema.optional(),
-});
-
-type FormData = z.infer<typeof Page1Schema>;
-
-/* ========= UI ========= */
+/* ===== UI base (reutiliza tu estilo USCIS) ===== */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-slate-800">
-        {label} <span className="text-[11px] text-slate-400">(Opcional)</span>
+    <div className="uscis-field">
+      <label className="uscis-label">
+        {label} <span className="uscis-hint">(Opcional)</span>
       </label>
       {children}
     </div>
   );
 }
-
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
+function Section({ title, description, children }:{
+  title:string; description?:string; children:React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl bg-white/85 border border-white/40 shadow-lg p-6 backdrop-blur-md">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      {description && <p className="text-sm text-slate-600 mt-1">{description}</p>}
-      <div className="mt-4 grid gap-4">{children}</div>
+    <section className="uscis-section">
+      <h2 className="uscis-section-title">{title}</h2>
+      {description && <p className="uscis-section-desc">{description}</p>}
+      <div className="uscis-section-body">{children}</div>
     </section>
   );
 }
+const Input = (p: React.InputHTMLAttributes<HTMLInputElement>) =>
+  <input {...p} className={`uscis-input ${p.className||''}`} />;
+const Textarea = (p: React.TextareaHTMLAttributes<HTMLTextAreaElement>) =>
+  <textarea {...p} className={`uscis-input uscis-textarea ${p.className||''}`} />;
 
-/* ========= PASOS ========= */
-const steps = [
-  { key: "identifiers", label: "Identificación" },
-  { key: "address", label: "Direcciones" },
-  { key: "bio", label: "Datos biográficos" },
-  { key: "statusTravel", label: "Estatus y viaje" },
-  { key: "languages", label: "Idiomas" },
-] as const;
-
-/* ========= PÁGINA ========= */
 export default function I589Page1() {
   const router = useRouter();
-  const [current, setCurrent] = useState(0);
+  const form = useForm({ mode: "onChange" });
+  const { register, watch, reset, handleSubmit } = form;
 
-  const methods = useForm<FormData>({
-    resolver: zodResolver(Page1Schema),
-    mode: "onChange",
-    defaultValues: {
-      identifiers: {},
-      address: {},
-      bio: {},
-      statusTravel: {},
-      languages: {},
-    },
-  });
+  // 1) Cargar snapshot local al entrar
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('i589_step_1');
+      if (raw) reset(JSON.parse(raw));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const { register, handleSubmit } = methods;
+  // 2) Autosave local + backend
+  const autosaveServer = useDebouncedCallback(async (patch:any) => {
+    try {
+      await authedFetch("/api/cases/i589/save", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ step: 1, patch }),
+      });
+    } catch {}
+  }, 900);
 
-  const onSubmit = (data: FormData) => {
-    console.log("I-589 Page 1 DATA:", data);
-    router.push("/i589/2");
-  };
+  useEffect(() => {
+    const sub = watch((data) => {
+      try {
+        localStorage.setItem('i589_step_1', JSON.stringify(data));
+        autosaveServer(data);
+      } catch {}
+    });
+    return () => sub.unsubscribe();
+  }, [watch, autosaveServer]);
 
-  function renderStep() {
-    const k = steps[current].key;
-
-    if (k === "identifiers") {
-      return (
-        <Section
-          title="Identificadores y nombres (Part A.I)"
-          description="Escribe tu información personal tal como aparece en tus documentos."
-        >
-          <div className="grid md:grid-cols-3 gap-4">
-            <Field label="A-Number">
-              <input {...register("identifiers.aNumber")} className="input" placeholder="A123-456-789 o N/A" />
-            </Field>
-            <Field label="U.S. Social Security Number">
-              <input {...register("identifiers.ssn")} className="input" placeholder="###-##-#### o N/A" />
-            </Field>
-            <Field label="USCIS Online Account Number">
-              <input {...register("identifiers.uscisAccount")} className="input" placeholder="N/A si no aplica" />
-            </Field>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4 mt-2">
-            <Field label="Apellido"><input {...register("identifiers.lastName")} className="input" /></Field>
-            <Field label="Nombre"><input {...register("identifiers.firstName")} className="input" /></Field>
-            <Field label="Segundo nombre"><input {...register("identifiers.middleName")} className="input" /></Field>
-          </div>
-          <Field label="Alias / otros nombres"><input {...register("identifiers.otherNames")} className="input" /></Field>
-        </Section>
-      );
-    }
-
-    if (k === "address") {
-      return (
-        <Section title="Direcciones en EE. UU." description="Si tienes dirección de residencia y de envío distintas, llena ambas.">
-          <div className="grid md:grid-cols-2 gap-4">
-            <Field label="Calle"><input {...register("address.res_street")} className="input" /></Field>
-            <Field label="Ciudad"><input {...register("address.res_city")} className="input" /></Field>
-            <Field label="Estado"><input {...register("address.res_state")} className="input" /></Field>
-            <Field label="Código postal"><input {...register("address.res_zip")} className="input" /></Field>
-          </div>
-        </Section>
-      );
-    }
-
-    if (k === "bio") {
-      return (
-        <Section title="Datos biográficos">
-          <div className="grid md:grid-cols-3 gap-4">
-            <Field label="Sexo">
-              <select {...register("bio.sex")} className="input">
-                <option value="">Seleccione</option>
-                <option value="Male">Masculino</option>
-                <option value="Female">Femenino</option>
-              </select>
-            </Field>
-            <Field label="Estado civil">
-              <select {...register("bio.maritalStatus")} className="input">
-                <option value="">Seleccione</option>
-                <option value="Single">Soltero(a)</option>
-                <option value="Married">Casado(a)</option>
-                <option value="Divorced">Divorciado(a)</option>
-                <option value="Widowed">Viudo(a)</option>
-              </select>
-            </Field>
-            <Field label="Fecha de nacimiento">
-              <input {...register("bio.dob")} className="input" placeholder="mm/dd/yyyy" />
-            </Field>
-          </div>
-        </Section>
-      );
-    }
-
-    if (k === "statusTravel") {
-      return (
-        <Section title="Estatus migratorio y viajes">
-          <div className="grid md:grid-cols-2 gap-4">
-            <Field label="Estatus actual"><input {...register("statusTravel.current_status")} className="input" /></Field>
-            <Field label="Número I-94"><input {...register("statusTravel.i94")} className="input" /></Field>
-          </div>
-        </Section>
-      );
-    }
-
-    return (
-      <Section title="Idiomas">
-        <div className="grid md:grid-cols-3 gap-4">
-          <Field label="Idioma nativo"><input {...register("languages.native_language")} className="input" /></Field>
-          <Field label="¿Habla inglés?">
-            <div className="flex gap-4">
-              <label><input type="radio" value="Yes" {...register("languages.fluent_english")} /> Sí</label>
-              <label><input type="radio" value="No" {...register("languages.fluent_english")} /> No</label>
-            </div>
-          </Field>
-          <Field label="Otros idiomas"><input {...register("languages.other_languages")} className="input" /></Field>
-        </div>
-      </Section>
-    );
-  }
+  const goNext = () => router.push('/i589/2');
 
   return (
-    <FormProvider {...methods}>
-      {/* SIN fondos locales: el fondo lo pone app/i589/layout.tsx */}
-      <main className="flex flex-col gap-6">
-        <header className="text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Formulario I-589 — Página 1</h1>
-          <p className="text-sm text-slate-700 mt-1">
-            Todos los campos son opcionales. Si no aplica, deja vacío o usa <b>N/A</b>.
-          </p>
+    <FormProvider {...form}>
+      <main className="uscis-page">
+        {/* Header institucional */}
+        <header className="uscis-header">
+          <div className="uscis-header-inner">
+            <h1 className="uscis-title">Formulario I-589</h1>
+            <p className="uscis-subtitle">Hoja 1 — Parte A.I · Información sobre usted</p>
+          </div>
         </header>
 
-        {/* Stepper */}
-        <div className="flex justify-center gap-3 flex-wrap bg-white/70 backdrop-blur rounded-2xl p-2 border border-white/60 shadow-sm">
-          {steps.map((s, idx) => {
-            const active = idx === current;
-            return (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => setCurrent(idx)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition
-                  ${active ? "bg-gradient-to-r from-blue-700 to-red-600 text-white shadow-md"
-                           : "text-slate-700 hover:bg-white/80"}`}
-              >
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
+        <div className="uscis-container">
+          <div className="uscis-content">
+            {/* Identificadores */}
+            <Section
+              title="Identificadores y nombres (Parte A.I)"
+              description="Escriba su información personal tal como aparece en sus documentos."
+            >
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="A-Number"><Input {...register('identifiers.aNumber')} placeholder="A###-###-### o N/A" /></Field>
+                <Field label="SSN (si tiene)"><Input {...register('identifiers.ssn')} placeholder="###-##-#### o N/A" /></Field>
+                <Field label="USCIS Online Account #"><Input {...register('identifiers.uscisAccount')} placeholder="N/A si no aplica" /></Field>
+              </div>
 
-        {/* Contenido del paso */}
-        {renderStep()}
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Apellido"><Input {...register('identifiers.lastName')} /></Field>
+                <Field label="Primer nombre"><Input {...register('identifiers.firstName')} /></Field>
+                <Field label="Segundo nombre"><Input {...register('identifiers.middleName')} /></Field>
+              </div>
 
-        {/* Navegación */}
-        <div className="flex items-center justify-between pt-4 pb-6">
-          <button
-            type="button"
-            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-            disabled={current === 0}
-            className="btn-outline disabled:opacity-40"
-          >
-            Atrás
-          </button>
-          <div className="flex gap-2">
-            {current < steps.length - 1 && (
-              <button type="button" onClick={() => setCurrent((c) => c + 1)} className="btn-outline">
-                Siguiente sección
-              </button>
-            )}
-            <button type="button" onClick={handleSubmit(onSubmit)} className="btn">
-              Ir a Página 2
+              <Field label="Alias / otros nombres">
+                <Input {...register('identifiers.otherNames')} placeholder="Incluya apodos, nombres anteriores, etc." />
+              </Field>
+            </Section>
+
+            {/* Direcciones en EE. UU. */}
+            <Section title="Direcciones en Estados Unidos" description="Su dirección física y de envío (si son distintas).">
+              <div className="uscis-box">
+                <p className="uscis-note"><b>Dirección de residencia</b></p>
+                <div className="uscis-grid uscis-grid-3">
+                  <Field label="Calle y número"><Input {...register('address.res_street')} /></Field>
+                  <Field label="Ciudad"><Input {...register('address.res_city')} /></Field>
+                  <Field label="Estado"><Input {...register('address.res_state')} /></Field>
+                </div>
+                <div className="uscis-grid uscis-grid-3">
+                  <Field label="Código postal"><Input {...register('address.res_zip')} /></Field>
+                  <Field label="Teléfono"><Input {...register('address.res_phone')} placeholder="(###) ###-####" /></Field>
+                </div>
+              </div>
+
+              <div className="uscis-box">
+                <p className="uscis-note"><b>Dirección de envío</b> (si es distinta)</p>
+                <div className="uscis-grid uscis-grid-3">
+                  <Field label="Calle y número"><Input {...register('address.mail_street')} /></Field>
+                  <Field label="Ciudad"><Input {...register('address.mail_city')} /></Field>
+                  <Field label="Estado"><Input {...register('address.mail_state')} /></Field>
+                </div>
+                <div className="uscis-grid uscis-grid-3">
+                  <Field label="Código postal"><Input {...register('address.mail_zip')} /></Field>
+                  <Field label="Teléfono"><Input {...register('address.mail_phone')} placeholder="(###) ###-####" /></Field>
+                </div>
+              </div>
+            </Section>
+
+            {/* Datos biográficos */}
+            <Section title="Datos biográficos">
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Sexo (M/F)"><Input {...register('bio.sex')} placeholder="Male / Female" /></Field>
+                <Field label="Estado civil"><Input {...register('bio.maritalStatus')} placeholder="Single / Married / Divorced / Widowed" /></Field>
+                <Field label="Fecha de nacimiento"><Input {...register('bio.dob')} placeholder="mm/dd/yyyy" /></Field>
+              </div>
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Ciudad de nacimiento"><Input {...register('bio.birth_city')} /></Field>
+                <Field label="País de nacimiento"><Input {...register('bio.birth_country')} /></Field>
+                <Field label="Religión (si desea)"><Input {...register('bio.religion')} /></Field>
+              </div>
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Nacionalidad actual"><Input {...register('bio.nationality_present')} /></Field>
+                <Field label="Nacionalidad al nacer"><Input {...register('bio.nationality_birth')} /></Field>
+                <Field label="Raza/Grupo étnico/Tribu"><Input {...register('bio.race_ethnic_tribe')} /></Field>
+              </div>
+            </Section>
+
+            {/* Estatus y viaje */}
+            <Section title="Estatus migratorio y viaje">
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Estatus actual en EE. UU."><Input {...register('statusTravel.current_status')} placeholder="B2 / Parole / TPS / N/A" /></Field>
+                <Field label="I-94 #"><Input {...register('statusTravel.i94')} placeholder="N/A si no aplica" /></Field>
+                <Field label="Estatus expira (mm/dd/yyyy)"><Input {...register('statusTravel.status_expires')} placeholder="mm/dd/yyyy" /></Field>
+              </div>
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Fecha última salida"><Input {...register('statusTravel.last_left_date')} placeholder="mm/dd/yyyy" /></Field>
+                <Field label="Lugar/País de salida"><Input {...register('statusTravel.last_left_place')} placeholder="Ciudad / Aeropuerto · País" /></Field>
+                <Field label="País al que salió"><Input {...register('statusTravel.last_left_country')} /></Field>
+              </div>
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Fecha última llegada"><Input {...register('statusTravel.last_arrival_date')} placeholder="mm/dd/yyyy" /></Field>
+                <Field label="Lugar de llegada"><Input {...register('statusTravel.last_arrival_place')} placeholder="Ciudad/Estado o Puerto/Aeropuerto" /></Field>
+                <Field label="Estatus al llegar"><Input {...register('statusTravel.status_at_arrival')} placeholder="B2 / Parole / N/A" /></Field>
+              </div>
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Pasaporte #"><Input {...register('statusTravel.passport_number')} /></Field>
+                <Field label="País del pasaporte"><Input {...register('statusTravel.passport_country')} /></Field>
+                <Field label="Pasaporte vence (mm/dd/yyyy)"><Input {...register('statusTravel.passport_expiration')} placeholder="mm/dd/yyyy" /></Field>
+              </div>
+              <div className="uscis-grid uscis-grid-2">
+                <Field label="Documento de viaje # (si distinto)"><Input {...register('statusTravel.travel_doc_number')} /></Field>
+              </div>
+            </Section>
+
+            {/* Idiomas */}
+            <Section title="Idiomas">
+              <div className="uscis-grid uscis-grid-3">
+                <Field label="Idioma nativo"><Input {...register('languages.native_language')} /></Field>
+                <Field label="¿Habla inglés?"><Input {...register('languages.fluent_english')} placeholder="Yes / No" /></Field>
+                <Field label="Otros idiomas"><Input {...register('languages.other_languages')} /></Field>
+              </div>
+            </Section>
+          </div>
+
+          {/* Navegación */}
+          <div className="uscis-nav">
+            <div />
+            <button
+              type="button"
+              className="uscis-btn uscis-btn-primary"
+              onClick={handleSubmit(goNext)}
+              title="Ir a la Hoja 2"
+            >
+              Continuar a la Hoja 2
             </button>
           </div>
         </div>
       </main>
-
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border: 1px solid rgba(148, 163, 184, 0.4);
-          border-radius: 0.75rem;
-          padding: 0.55rem 0.9rem;
-          font-size: 0.9rem;
-          background: rgba(255, 255, 255, 0.8);
-          box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-          transition: all 0.2s ease;
-        }
-        .input:focus {
-          outline: none;
-          border-color: #2563eb;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-          background: white;
-        }
-        .btn {
-          background: linear-gradient(90deg, #1e3a8a 0%, #b91c1c 100%);
-          color: #fff;
-          padding: 0.55rem 1.2rem;
-          border-radius: 9999px;
-          font-size: 0.9rem;
-          font-weight: 500;
-          box-shadow: 0 4px 15px rgba(30, 58, 138, 0.25);
-          transition: all 0.2s ease;
-        }
-        .btn:hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(30,58,138,.35); }
-        .btn-outline {
-          background: rgba(255, 255, 255, 0.85);
-          color: #0f172a;
-          border: 1px solid rgba(148, 163, 184, 0.5);
-          padding: 0.55rem 1.2rem;
-          border-radius: 9999px;
-          font-size: 0.9rem;
-          transition: all 0.2s ease;
-        }
-        .btn-outline:hover { background: white; border-color: #2563eb; }
-      `}</style>
     </FormProvider>
   );
 }
