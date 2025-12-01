@@ -6,10 +6,11 @@ import { getUserIdFromHeader } from "@/lib/server-auth";
 export const runtime = "nodejs";
 
 type JsonObject = Record<string, unknown>;
+
 const isPlainObject = (v: unknown): v is JsonObject =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-// Acepta type del body y lo normaliza a mayúsculas; default I589
+// Acepta type del body y lo normaliza a mayúsculas; por defecto I589
 function normalizeCaseType(v: unknown): string {
   return typeof v === "string" && v.trim()
     ? v.trim().toUpperCase()
@@ -26,54 +27,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Body opcional
     const raw = (await req.json().catch(() => ({}))) as unknown;
     const payload: JsonObject = isPlainObject(raw) ? raw : {};
 
     const caseType = normalizeCaseType(payload["type"]);
-    const initialData: JsonObject = isPlainObject(payload["initialData"])
-      ? (payload["initialData"] as JsonObject)
-      : {};
 
-    // ¿Ya hay draft de este tipo?
+    // =====================================================================
+    // 1) ¿YA EXISTE UN CASO EN BORRADOR (DRAFT) PARA ESTE USUARIO Y TIPO?
+    // =====================================================================
     const existing = await prisma.case.findFirst({
       where: {
         ownerId: userId,
-        type: caseType as any,
-        status: "DRAFT" as any,
+        type: caseType as any,   // enum/string según tu schema
+        status: "DRAFT" as any,  // enum/string
       },
-      select: { id: true, data: true },
+      select: { id: true },      // 👈 YA NO PEDIMOS `data`
     });
 
     if (existing) {
-      const merged: JsonObject = {
-        ...(isPlainObject(existing.data) ? existing.data : {}),
-        ...initialData,
-      };
-
-      const updated = await prisma.case.update({
-        where: { id: existing.id },
-        data: { data: merged as any }, // ✅ cast puntual
-        select: { id: true },
-      });
-
+      // Reutilizamos el borrador existente
       return NextResponse.json({
         ok: true,
-        id: updated.id,
+        id: existing.id,
         created: false,
         type: caseType,
       });
     }
 
-    // Crea draft
+    // =====================================================================
+    // 2) SI NO EXISTE, CREAMOS UN NUEVO CASO EN ESTADO DRAFT
+    // =====================================================================
     const created = await prisma.case.create({
       data: {
         ownerId: userId,
-        type: caseType as any,       // ✅ enum cast
-        status: "DRAFT" as any,      // ✅ enum cast
-        data: initialData as any,     // ✅ JSON cast
+        type: caseType as any,   // enum/string
+        status: "DRAFT" as any,  // enum/string
       },
       select: { id: true },
-    });
+    } as any); // 👈 cast global para evitar que Prisma/TS se queje
 
     return NextResponse.json({
       ok: true,
@@ -84,6 +76,9 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "ADD_APPLICASE_ERROR";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: message },
+      { status: 500 }
+    );
   }
 }
