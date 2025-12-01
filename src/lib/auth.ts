@@ -2,14 +2,13 @@
 
 /**
  * Auth en cliente (localStorage).
- * Se mantiene tu API tal cual y se anexan helpers para enviar x-user-id al backend.
+ * Mantiene tu API original y agrega helpers para enviar x-user-id al backend.
  */
 
 export type User = { id: string; name: string; email: string; password: string };
 
 const USERS_KEY = "ma:users";
 const CURRENT_KEY = "ma:currentUser";
-const uid = () => crypto.randomUUID();
 
 /* ====== utilidades internas ====== */
 function hasWindow() {
@@ -56,7 +55,7 @@ export function getCurrentUser(): { id: string; name: string; email: string } | 
   try { return JSON.parse(localStorage.getItem(CURRENT_KEY) || "null"); } catch { return null; }
 }
 
-/* ====== ANEXOS (para arreglar el userId en el backend) ====== */
+/* ====== ANEXOS ====== */
 
 /** Igual que getCurrentUser, nombre explícito por si lo necesitas */
 export function getCurrentUserClient():
@@ -67,7 +66,7 @@ export function getCurrentUserClient():
 }
 
 /** Devuelve solo el ID actual (o null) */
-export function getCurrentUserId(req: unknown): string | null {
+export function getCurrentUserId(_req: unknown): string | null {
   const u = getCurrentUserClient();
   return u?.id ?? null;
 }
@@ -80,16 +79,46 @@ export function authHeaders(extra?: HeadersInit): HeadersInit {
   return base;
 }
 
-
-/** fetch que ya manda x-user-id. Úsalo en lugar de fetch normal. */
+/** fetch que ya manda x-user-id si hay usuario logueado */
 export async function authedFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = authHeaders(init.headers);
   return fetch(input, { ...init, headers });
 }
-// ======== KC enums (solo referencia) ==================================
-// Úsalos en el cliente para mantener nombres consistentes en toda la app.
-// Nota: estos son strings; son iguales a los valores que espera la BD.
 
+/* ====== mejoras MVP ====== */
+
+/** Fallback de uuid para navegadores sin crypto.randomUUID */
+const uid = () =>
+  (typeof crypto !== "undefined" && (crypto as any).randomUUID?.()) ||
+  `u_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
+/** Dev user automático (para demo/MVP sin exigir login previo) */
+export function ensureDevUser() {
+  if (!hasWindow()) return null;
+  const current = getCurrentUser();
+  if (current) return current;
+
+  const users = readUsers();
+  let u = users.find(x => x.email === "dev@example.com");
+  if (!u) {
+    u = { id: uid(), name: "Dev User", email: "dev@example.com", password: "dev" };
+    users.push(u);
+    writeUsers(users);
+  }
+  const minimal = { id: u.id, name: u.name, email: u.email };
+  localStorage.setItem(CURRENT_KEY, JSON.stringify(minimal));
+  return minimal;
+}
+
+/** Igual que authedFetch pero garantiza un x-user-id (login o dev) */
+export async function authedFetchWithFallback(input: RequestInfo | URL, init: RequestInit = {}) {
+  const headers = new Headers(init.headers || {});
+  const current = getCurrentUser() || ensureDevUser();
+  if (current && !headers.has("x-user-id")) headers.set("x-user-id", current.id);
+  return fetch(input, { ...init, headers });
+}
+
+/* ======== Enums (referencia) ======== */
 export const KCType = {
   I589: 'I589',
   I765: 'I765',

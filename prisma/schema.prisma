@@ -5,8 +5,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // ⬅️ CAMBIO: antes decía "sqlite"
-  url      = env("DATABASE_URL") // usa la URL de Neon
+  provider = "postgresql" // ✅ Usa Neon u otro Postgres
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -38,15 +38,16 @@ enum CaseStatus {
 }
 
 model Case {
-  id        String     @id @default(cuid())
-  type      CaseType
-  status    CaseStatus @default(DRAFT)
-  ownerId   String
-  owner     User       @relation(fields: [ownerId], references: [id])
-  data      Json
-  files     Evidence[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id     String @id @default(cuid())
+  type   String
+  status String
+
+  // 👇 lo que ya hablamos: que ownerId sea opcional
+  ownerId String?
+  owner   User?   @relation(fields: [ownerId], references: [id])
+
+  // 👇 NUEVO: lado “opuesto” de la relación con Evidence
+  evidences Evidence[] // nombre que tú quieras, pero que sea una lista
 }
 
 model Evidence {

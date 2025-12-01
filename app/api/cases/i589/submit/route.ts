@@ -12,46 +12,54 @@ const isPlainObject = (v: unknown): v is JsonObject =>
 export async function POST(req: NextRequest) {
   try {
     const userId = getUserIdFromHeader(req);
-    if (!userId) {
-      return NextResponse.json(
-        { ok: false, error: "UNAUTHENTICATED" },
-        { status: 401 }
-      );
-    }
-
-    // Body desde el front, normalizado a objeto
     const raw = (await req.json().catch(() => ({}))) as unknown;
     const body: JsonObject = isPlainObject(raw) ? raw : {};
 
-    // Busca el draft I-589 del usuario
-    const draft = await prisma.case.findFirst({
-      where: { ownerId: userId, type: "I589" as any, status: "DRAFT" as any },
+    // Buscar un borrador existente (del usuario o general)
+    let draft = await prisma.case.findFirst({
+      where: {
+        type: "I589",
+        status: "DRAFT",
+        ...(userId ? { ownerId: userId } : {}),
+      },
       select: { id: true, data: true },
     });
 
+    // Si no hay borrador, crear uno nuevo sin owner
     if (!draft) {
-      return NextResponse.json(
-        { ok: false, error: "NO_DRAFT" },
-        { status: 404 }
-      );
+      draft = await prisma.case.create({
+        data: {
+          ownerId: userId ?? null,
+          type: "I589",
+          status: "DRAFT",
+          data: {},
+        },
+        select: { id: true, data: true },
+      });
     }
 
-    // Merge seguro de JSON
-    const draftData: JsonObject = isPlainObject(draft.data) ? draft.data : {};
-    const finalData: JsonObject = { ...draftData, ...body };
+    // Fusionar datos previos con nuevos
+    const merged = { ...(draft.data as JsonObject), ...body };
 
-    // Actualiza a READY_FOR_REVIEW y guarda el JSON final
+    // Actualizar estado y datos
     await prisma.case.update({
       where: { id: draft.id },
       data: {
-        status: "READY_FOR_REVIEW" as any,
-        data: finalData as any,
+        status: "READY_FOR_REVIEW",
+        data: merged as any,
       },
     });
 
-    return NextResponse.json({ ok: true, id: draft.id });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "SUBMIT_ERROR";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return NextResponse.json({
+      ok: true,
+      id: draft.id,
+      message: "Formulario enviado correctamente ✅",
+    });
+  } catch (e: any) {
+    console.error("❌ Error en submit:", e);
+    return NextResponse.json(
+      { ok: false, error: e?.message || "SUBMIT_ERROR" },
+      { status: 500 }
+    );
   }
 }
