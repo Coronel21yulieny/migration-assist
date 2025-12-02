@@ -1,29 +1,29 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { loginUser } from "@/lib/auth"; // 👈 usamos tu auth de localStorage
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("yulienycoronel206@gmail.com"); // si quieres puedes dejar ""
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Credenciales inválidas");
-      // aquí ya viene la cookie 'session'
-      router.push("/opciones"); // o a donde quieras
+      // 🔑 login directo en localStorage (NO fetch, NO servidor)
+      loginUser(email, password);
+
+      // si todo va bien, redirigimos
+      router.push("/opciones"); // o "/i589/2", lo que uses para empezar
     } catch (err: any) {
+      // loginUser lanza "Credenciales inválidas." si no coincide
       setError(err?.message || "Error al iniciar sesión");
     } finally {
       setLoading(false);
@@ -37,14 +37,26 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} className="form">
           <label>
             <span>Correo</span>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              required
+            />
           </label>
           <label>
             <span>Contraseña</span>
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              required
+            />
           </label>
           {error && <p className="error">{error}</p>}
-          <button disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
+          <button disabled={loading}>
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
         </form>
         <p style={{ marginTop: 12 }}>
           ¿No tienes cuenta? <a href="/auth/register">Crear cuenta</a>
