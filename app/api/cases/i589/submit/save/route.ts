@@ -5,10 +5,6 @@ import { getUserIdFromHeader } from "@/lib/server-auth";
 
 export const runtime = "nodejs";
 
-type JsonObject = Record<string, unknown>;
-const isPlainObject = (v: unknown): v is JsonObject =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
 export async function POST(req: NextRequest) {
   try {
     const userId = getUserIdFromHeader(req);
@@ -19,48 +15,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Acepta { patch: {...} } o directamente un objeto
-    const raw = (await req.json().catch(() => ({}))) as unknown;
-    const maybeObj = isPlainObject(raw) ? raw : {};
-    const patch: JsonObject = isPlainObject((maybeObj as any).patch)
-      ? ((maybeObj as any).patch as JsonObject)
-      : isPlainObject(maybeObj)
-      ? (maybeObj as JsonObject)
-      : {};
+    // El body puede traer parches de datos, pero en esta versión
+    // ya NO los guardamos en el modelo Case porque no existe `data`.
+    await req.json().catch(() => ({}));
 
-    // Busca draft I-589 del usuario
+    // 1) Buscar borrador existente de I-589
     const existing = await prisma.case.findFirst({
-      where: { ownerId: userId, type: "I589" as any, status: "DRAFT" as any },
-      select: { id: true, data: true },
+      where: {
+        ownerId: userId,
+        type: "I589" as any,
+        status: "DRAFT" as any,
+      },
+      select: { id: true }, // 👈 SOLO id, nada de data
     });
 
-    const existingData: JsonObject = isPlainObject(existing?.data)
-      ? (existing!.data as JsonObject)
-      : {};
+    if (existing) {
+      return NextResponse.json({
+        ok: true,
+        id: existing.id,
+        created: false,
+      });
+    }
 
-    // ✅ Merge seguro (solo objetos)
-    const merged: JsonObject = { ...existingData, ...patch };
+    // 2) Si no existe, creamos un nuevo DRAFT vacío
+    const created = await prisma.case.create({
+      data: {
+        ownerId: userId,
+        type: "I589" as any,
+        status: "DRAFT" as any,
+      },
+      select: { id: true },
+    });
 
-    // Upsert sencillo
-    const rec = existing
-      ? await prisma.case.update({
-          where: { id: existing.id },
-          data: { data: merged as any }, // cast puntual a JSON
-          select: { id: true },
-        })
-      : await prisma.case.create({
-          data: {
-            ownerId: userId,
-            type: "I589" as any,
-            status: "DRAFT" as any,
-            data: merged as any, // cast puntual a JSON
-          },
-          select: { id: true },
-        });
-
-    return NextResponse.json({ ok: true, id: rec.id });
+    return NextResponse.json({
+      ok: true,
+      id: created.id,
+      created: true,
+    });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "SAVE_ERROR";
+    const msg =
+      e instanceof Error ? e.message : "SUBMIT_SAVE_I589_ERROR";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
